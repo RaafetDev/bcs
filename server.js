@@ -55,4 +55,4 @@ app.post('/v5/api', async (req, res) => {
     }
 });
 
-module.exports = app;
+app.listen(3000);
