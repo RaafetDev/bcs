@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/v5/api', async (req, res) => {
-    console.log(req.body);
+    //console.log(req.body);
     const data = req.body.data || false;
 
     try {
