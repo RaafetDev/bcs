@@ -1,63 +1,55 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
-const fs = require('fs');
-const path = require('path');
-const tesseract = require('tesseract.js');
+const { Worker } = require('worker_threads');
 
+app.use(cors());
+app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Create a temporary directory for storing the images
-const tempDir = path.join(__dirname, 'temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir);
+async function AI(arr) {
+    const promises = arr.map(item => new Promise((resolve, reject) => {
+        const worker = new Worker('./worker.js', { workerData: { img: item.img } });
+        worker.on('message', resolve);
+        worker.on('error', reject);
+        worker.on('exit', (code) => {
+            if (code !== 0)
+                reject(new Error(`Worker stopped with exit code ${code}`));
+        });
+    }));
+
+    try {
+        const texts = await Promise.all(promises);
+        return arr.map((item, index) => ({ id: item.id, text: texts[index] }));
+    } catch (error) {
+        console.error("Error:", error);
+        throw error;
+    }
 }
 
-app.post('/ocr', async (req, res) => {
-  try {
-    const images = req.body;
-    const results = {};
+app.get('/', (req, res) => {
+    res.json({ status: true, server: 'ON', by: 'RedBLs', telegram: 'https://t.me/bls_script_alert' });
+});
 
-    // Process the images in parallel
-    await Promise.all(
-      Object.keys(images).map(async (key) => {
-        const image = images[key];
-        const imagePath = path.join(tempDir, `${key}.png`);
+app.post('/v5/api', async (req, res) => {
+    console.log(req.body);
+    const data = req.body.data || false;
 
-        try {
-          // Save the image to a temporary file
-          await fs.promises.writeFile(imagePath, Buffer.from(image, 'base64'));
-
-          // Perform OCR on the image using Tesseract.js
-          const { data } = await tesseract.recognize(imagePath, 'eng', {
-            logger: (m) => console.log(m),
-          });
-
-          // Extract the detected number from the OCR result
-          const detectedNumber = parseInt(data.text.trim(), 10);
-          results[key] = isNaN(detectedNumber) ? '' : detectedNumber.toString();
-        } catch (error) {
-          console.error(`Error processing image ${key}: ${error}`);
-          results[key] = ''; // Set a default value in case of an error
-        } finally {
-          // Remove the temporary file
-          await fs.promises.unlink(imagePath).catch((err) => {
-            console.error(`Error removing temporary file ${imagePath}: ${err}`);
-          });
+    try {
+        if (data && Array.isArray(data)) {
+            const result = await AI(data);
+            res.json({ status: true, data: result });
+        } else {
+            res.json({ status: false, msg: 'data invalid!' });
         }
-      })
-    );
-
-    res.json(results);
-  } catch (error) {
-    console.error('Error in /ocr route:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ status: false, msg: 'Internal Server Error' });
+    }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+app.listen(3000);
+
 
 
 
