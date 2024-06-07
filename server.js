@@ -2,7 +2,6 @@ const express = require('express');
 const app = express();
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
 const tesseract = require('tesseract.js');
 
 app.use(express.json());
