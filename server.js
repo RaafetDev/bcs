@@ -1,4 +1,75 @@
 const express = require('express');
+const app = express();
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+const tesseract = require('tesseract.js');
+
+app.use(express.json());
+
+// Create a temporary directory for storing the images
+const tempDir = path.join(__dirname, 'temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir);
+}
+
+app.post('/ocr', async (req, res) => {
+  try {
+    const images = req.body;
+    const results = {};
+
+    // Process the images in parallel
+    await Promise.all(
+      Object.keys(images).map(async (key) => {
+        const image = images[key];
+        const imagePath = path.join(tempDir, `${key}.png`);
+
+        // Save the image to a temporary file
+        await fs.promises.writeFile(imagePath, Buffer.from(image, 'base64'));
+
+        // Perform OCR on the image using Tesseract.js
+        const { data } = await tesseract.recognize(imagePath, 'eng', {
+          logger: (m) => console.log(m),
+        });
+
+        // Extract the detected number from the OCR result
+        const detectedNumber = parseInt(data.text.trim(), 10);
+        results[key] = detectedNumber.toString();
+
+        // Remove the temporary file
+        await fs.promises.unlink(imagePath);
+      })
+    );
+
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*const express = require('express');
 const cors = require('cors');
 const app = express();
 const Jimp = require('jimp');
@@ -57,4 +128,4 @@ app.post('/v5/api', async (req, res) => {
     }
 });
 
-app.listen(3000);
+app.listen(3000);*/
