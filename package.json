@@ -13,6 +13,7 @@
     "express": "^4.17.1",
     "cors": "^2.8.5",
     "jimp": "^0.22.10",
+    "node-cache":"*",
     "tesseract.js": "^5.0.4",
     "tesseract.js-core": "^5.0.0"
   }
