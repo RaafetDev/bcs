@@ -23,26 +23,33 @@ app.post('/ocr', async (req, res) => {
         const image = images[key];
         const imagePath = path.join(tempDir, `${key}.png`);
 
-        // Save the image to a temporary file
-        await fs.promises.writeFile(imagePath, Buffer.from(image, 'base64'));
+        try {
+          // Save the image to a temporary file
+          await fs.promises.writeFile(imagePath, Buffer.from(image, 'base64'));
 
-        // Perform OCR on the image using Tesseract.js
-        const { data } = await tesseract.recognize(imagePath, 'eng', {
-          logger: (m) => console.log(m),
-        });
+          // Perform OCR on the image using Tesseract.js
+          const { data } = await tesseract.recognize(imagePath, 'eng', {
+            logger: (m) => console.log(m),
+          });
 
-        // Extract the detected number from the OCR result
-        const detectedNumber = parseInt(data.text.trim(), 10);
-        results[key] = detectedNumber.toString();
-
-        // Remove the temporary file
-        await fs.promises.unlink(imagePath);
+          // Extract the detected number from the OCR result
+          const detectedNumber = parseInt(data.text.trim(), 10);
+          results[key] = isNaN(detectedNumber) ? '' : detectedNumber.toString();
+        } catch (error) {
+          console.error(`Error processing image ${key}: ${error}`);
+          results[key] = ''; // Set a default value in case of an error
+        } finally {
+          // Remove the temporary file
+          await fs.promises.unlink(imagePath).catch((err) => {
+            console.error(`Error removing temporary file ${imagePath}: ${err}`);
+          });
+        }
       })
     );
 
     res.json(results);
   } catch (error) {
-    console.error(error);
+    console.error('Error in /ocr route:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -51,6 +58,7 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
 
 
 
